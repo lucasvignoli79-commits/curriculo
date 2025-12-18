@@ -305,3 +305,4 @@ export const searchJobs = async (role: string, location: string) => {
     chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] 
   };
 };
+
