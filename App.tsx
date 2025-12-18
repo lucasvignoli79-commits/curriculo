@@ -23,8 +23,29 @@ import AuthScreen from './components/AuthScreen.tsx';
 import AdminDashboard from './components/AdminDashboard.tsx';
 
 import { FileText, Sparkles, Briefcase, BookOpen, Layout, Camera, Search, ShieldCheck, Linkedin, MessageSquare, Crown, Layers, Zap, X, GraduationCap, LogOut, Lock, Globe, History, Check } from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Auth from './components/Auth';
 
 const App: React.FC = () => {
+  const { session, loading: authLoading, isPasswordRecovery } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Show password reset form when user clicks reset link from email
+  if (isPasswordRecovery) {
+    return <Auth initialView="reset-password" />;
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
   const [result, setResult] = useState<GeneratedResume | null>(null);
@@ -33,7 +54,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('modern');
   const [showSavedToast, setShowSavedToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('Currículo salvo em "Meus Currículos"');
+  const [toastMessage, setToastMessage] = useState('CurrÃ­culo salvo em "Meus CurrÃ­culos"');
 
   // Initialize Auth
   useEffect(() => {
@@ -57,7 +78,7 @@ const App: React.FC = () => {
   };
 
   const triggerSaveToast = (msg?: string) => {
-      setToastMessage(msg || 'Currículo salvo em "Meus Currículos"');
+      setToastMessage(msg || 'CurrÃ­culo salvo em "Meus CurrÃ­culos"');
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
   };
@@ -80,7 +101,7 @@ const App: React.FC = () => {
       setResult(generated);
       setMode(AppMode.RESULT);
     } catch (err) {
-      setError("Erro ao gerar currículo. Tente novamente.");
+      setError("Erro ao gerar currÃ­culo. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -100,7 +121,7 @@ const App: React.FC = () => {
       setResult(generated);
       setMode(AppMode.RESULT);
     } catch (err) {
-      setError("Erro ao otimizar currículo. Verifique se a imagem é legível e tente novamente.");
+      setError("Erro ao otimizar currÃ­culo. Verifique se a imagem Ã© legÃ­vel e tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -155,7 +176,7 @@ const App: React.FC = () => {
                 onClick={() => setMode(AppMode.HISTORY)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-sm font-medium transition-colors"
               >
-                  <History className="w-4 h-4" /> Meus Currículos
+                  <History className="w-4 h-4" /> Meus CurrÃ­culos
               </button>
 
               {user.role === 'admin' && (
@@ -174,7 +195,7 @@ const App: React.FC = () => {
           Curriculum <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Master IA</span>
         </h1>
         <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto font-light">
-          Crie, otimize ou transforme seu currículo em um documento de alto impacto em segundos.
+          Crie, otimize ou transforme seu currÃ­culo em um documento de alto impacto em segundos.
         </p>
       </div>
 
@@ -203,7 +224,7 @@ const App: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Foto Profissional</h2>
           <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
-            Transforme selfie em foto de estúdio com IA.
+            Transforme selfie em foto de estÃºdio com IA.
           </p>
         </button>
 
@@ -218,9 +239,9 @@ const App: React.FC = () => {
           <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors duration-300">
             <Briefcase className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Currículo Profissional</h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">CurrÃ­culo Profissional</h2>
           <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
-            Criação rápida focada em resultados.
+            CriaÃ§Ã£o rÃ¡pida focada em resultados.
           </p>
         </button>
 
@@ -235,9 +256,9 @@ const App: React.FC = () => {
           <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors duration-300">
             <BookOpen className="w-7 h-7 text-orange-500 group-hover:text-white transition-colors" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Currículo Jovem Aprendiz</h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">CurrÃ­culo Jovem Aprendiz</h2>
           <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
-            Foco em potencial e educação para o 1º emprego.
+            Foco em potencial e educaÃ§Ã£o para o 1Âº emprego.
           </p>
         </button>
 
@@ -293,7 +314,7 @@ const App: React.FC = () => {
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Globe className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">Buscar Vagas</h3>
             </div>
-            <p className="text-xs text-slate-500">Encontre oportunidades na sua região.</p>
+            <p className="text-xs text-slate-500">Encontre oportunidades na sua regiÃ£o.</p>
         </button>
 
         {/* Analisar Vaga */}
@@ -311,7 +332,7 @@ const App: React.FC = () => {
                 <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><ShieldCheck className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">ATS Checker</h3>
             </div>
-            <p className="text-xs text-slate-500">Seu CV passa pelos robôs de RH?</p>
+            <p className="text-xs text-slate-500">Seu CV passa pelos robÃ´s de RH?</p>
         </button>
 
         {/* LinkedIn Pro */}
@@ -320,7 +341,7 @@ const App: React.FC = () => {
                 <div className="p-2 bg-sky-50 text-sky-600 rounded-lg"><Linkedin className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">LinkedIn Pro</h3>
             </div>
-            <p className="text-xs text-slate-500">Gere Bio e Título otimizados.</p>
+            <p className="text-xs text-slate-500">Gere Bio e TÃ­tulo otimizados.</p>
         </button>
 
          {/* Simulador */}
@@ -336,9 +357,9 @@ const App: React.FC = () => {
          <button onClick={() => setMode(AppMode.COURSES)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-teal-50 text-teal-600 rounded-lg"><GraduationCap className="w-5 h-5"/></div>
-                <h3 className="font-bold text-slate-800">Cursos Grátis</h3>
+                <h3 className="font-bold text-slate-800">Cursos GrÃ¡tis</h3>
             </div>
-            <p className="text-xs text-slate-500">Recomendações para turbinar o CV.</p>
+            <p className="text-xs text-slate-500">RecomendaÃ§Ãµes para turbinar o CV.</p>
         </button>
         
         {/* Antes e Depois */}
@@ -347,7 +368,7 @@ const App: React.FC = () => {
                 <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg"><Layers className="w-5 h-5"/></div>
                 <div>
                     <h3 className="font-bold text-slate-800">Galeria Antes e Depois</h3>
-                    <p className="text-xs text-slate-500">Veja exemplos reais de transformação.</p>
+                    <p className="text-xs text-slate-500">Veja exemplos reais de transformaÃ§Ã£o.</p>
                 </div>
             </div>
             <div className="text-cyan-600"><Zap className="w-4 h-4" /></div>
@@ -444,7 +465,7 @@ const App: React.FC = () => {
             <CourseRecommendations 
                 userId={user.id}
                 onBack={() => setMode(AppMode.HOME)} 
-                onAddedSuccess={() => triggerSaveToast("Curso adicionado ao currículo com sucesso!")}
+                onAddedSuccess={() => triggerSaveToast("Curso adicionado ao currÃ­culo com sucesso!")}
             />
         )}
 
@@ -478,4 +499,11 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+// Wrap App with AuthProvider
+const AppWithAuth = () => (
+  <AuthProvider>
+    <App />
+  </AuthProvider>
+);
+
+export default AppWithAuth;
