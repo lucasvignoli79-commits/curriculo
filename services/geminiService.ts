@@ -13,7 +13,7 @@ SUA MISSÃO:
 REGRAS CRÍTICAS DE FORMATAÇÃO (NÃO NEGOCIÁVEIS):
 - NÃO utilize asteriscos (*), hífens (-), símbolos ou caracteres especiais no início ou no fim das frases.
 - NÃO utilize marcadores de lista (bullet points).
-- Separe as informações apenas por quebras de linha e títulos claros.
+- Separe as informações apenas por quebras de linha e títulos claros (ex: # Título).
 - NÃO use negrito ou itálico através de símbolos (como **texto**).
 - O texto deve estar pronto para uso, sem necessidade de limpeza manual de símbolos.
 
@@ -25,7 +25,7 @@ REGRAS DE CONTEÚDO:
 
 REGRAS DE RETORNO:
 - Retorne os dados ESTRUTURADOS (JSON).
-- No campo "markdown", use apenas títulos com '#' e quebras de linha simples, sem qualquer outro símbolo de formatação.
+- No campo "markdown", use apenas títulos com '#' e quebras de linha simples.
 `;
 
 const RESPONSE_SCHEMA = {
@@ -62,7 +62,6 @@ const RESPONSE_SCHEMA = {
   required: ["markdown", "structured", "suggestions"],
 };
 
-// Helper function to clean JSON strings from Markdown code blocks
 const cleanJsonString = (jsonStr: string): string => {
   return jsonStr.replace(/```json\n?|```/g, "").trim();
 };
@@ -70,8 +69,7 @@ const cleanJsonString = (jsonStr: string): string => {
 export const generateResumeFromScratch = async (data: ResumeFormData, isApprentice: boolean = false): Promise<GeneratedResume> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const { photo, ...textData } = data;
-  
-  const prompt = `GERAR CURRÍCULO LIMPO E DIRETO. MODO: ${isApprentice ? 'JOVEM APRENDIZ' : 'PROFISSIONAL'}. DADOS DO USUÁRIO: ${JSON.stringify(textData)}. Lembre-se: SEM SÍMBOLOS, SEM ASTERISCOS, SEM LISTAS COM HIFENS. Texto puro e profissional.`;
+  const prompt = `GERAR CURRÍCULO LIMPO E DIRETO. MODO: ${isApprentice ? 'JOVEM APRENDIZ' : 'PROFISSIONAL'}. DADOS DO USUÁRIO: ${JSON.stringify(textData)}. Lembre-se: SEM SÍMBOLOS, SEM ASTERISCOS, SEM LISTAS COM HIFENS.`;
   
   try {
     const response = await ai.models.generateContent({
@@ -92,7 +90,7 @@ export const generateResumeFromScratch = async (data: ResumeFormData, isApprenti
 
 export const optimizeResume = async (textInput: string, imageBase64?: string, mimeType?: string): Promise<GeneratedResume> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `OTIMIZAR CURRÍCULO. Remova todos os símbolos de lista, asteriscos e caracteres especiais. Torne o texto direto, profissional e limpo. CONTEÚDO: ${textInput}`;
+  const prompt = `OTIMIZAR CURRÍCULO. Remova todos os símbolos de lista, asteriscos e caracteres especiais. CONTEÚDO: ${textInput}`;
   const parts: any[] = [{ text: prompt }];
   
   if (imageBase64 && mimeType) {
@@ -126,10 +124,7 @@ export const generateProfessionalHeadshot = async (imageBase64: string, style: P
     bw: "elegant black and white, dramatic lighting, high contrast, professional corporate style"
   };
 
-  const prompt = `Act as a professional photo editor. Transform this person's photo into a high-quality professional corporate headshot. 
-  Style requested: ${stylePrompts[style]}. 
-  Keep the person's facial identity exactly as is, but optimize the lighting, replace the background with a professional one, and adjust clothing to match the corporate style. 
-  Output ONLY the transformed image.`;
+  const prompt = `Act as a professional photo editor. Transform this person's photo into a high-quality professional corporate headshot. Style: ${stylePrompts[style]}. Keep identity identical. Output image only.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -139,6 +134,9 @@ export const generateProfessionalHeadshot = async (imageBase64: string, style: P
           { inlineData: { data: imageBase64, mimeType: 'image/jpeg' } }, 
           { text: prompt }
         ] 
+      },
+      config: {
+          imageConfig: { aspectRatio: "1:1" }
       }
     });
     
@@ -147,7 +145,7 @@ export const generateProfessionalHeadshot = async (imageBase64: string, style: P
         return part.inlineData.data;
       }
     }
-    throw new Error("Nenhuma imagem gerada pela IA.");
+    throw new Error("Nenhuma imagem gerada.");
   } catch (error) {
     console.error("Gemini Photo Gen Error:", error);
     throw error;
@@ -176,10 +174,7 @@ export const analyzeJobMatch = async (resumeText: string, jobDescription: string
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Analise a compatibilidade entre o currículo e a vaga abaixo.
-    CURRÍCULO: ${resumeText}
-    VAGA: ${jobDescription}
-    Retorne um JSON com: { score: number, missingKeywords: string[], suggestions: string[] }`,
+    contents: `Analise a compatibilidade entre o currículo e a vaga abaixo.\nCURRÍCULO: ${resumeText}\nVAGA: ${jobDescription}`,
     config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -200,8 +195,7 @@ export const checkATS = async (resumeText: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Realize um check de legibilidade ATS para o seguinte texto de currículo: ${resumeText}.
-    Retorne um JSON com: { score: number, errors: string[], warnings: string[], keywordsFound: string[] }`,
+    contents: `Realize um check de legibilidade ATS para o seguinte texto de currículo: ${resumeText}`,
     config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -223,9 +217,7 @@ export const generateLinkedInProfile = async (resumeText: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Com base no currículo abaixo, gere um perfil otimizado para o LinkedIn.
-    CURRÍCULO: ${resumeText}
-    Retorne um JSON com: { headline: string, aboutShort: string, aboutMedium: string, aboutLong: string, skills: string[] }`,
+    contents: `Com base no currículo abaixo, gere um perfil otimizado para o LinkedIn.\nCURRÍCULO: ${resumeText}`,
     config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -248,8 +240,7 @@ export const simulateInterview = async (role: string, level: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Simule uma entrevista de emprego para o cargo de ${role} (Nível: ${level}).
-    Retorne um JSON com: { feedback: string, commonQuestions: Array<{question: string, idealAnswer: string}>, techQuestions: Array<{question: string, idealAnswer: string}>, hardQuestions: Array<{question: string, idealAnswer: string}> }`,
+    contents: `Simule uma entrevista de emprego para o cargo de ${role} (Nível: ${level})`,
     config: { 
         responseMimeType: "application/json",
         responseSchema: {
@@ -269,22 +260,7 @@ export const simulateInterview = async (role: string, level: string) => {
 
 export const getCourseRecommendations = async (area: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `
-  RECOMENDE 5 CURSOS ONLINE GRATUITOS para: ${area}.
-  
-  REGRAS CRÍTICAS PARA EVITAR LINKS QUEBRADOS:
-  1. Use EXCLUSIVAMENTE os links de catálogos gerais das plataformas abaixo. NÃO INVENTE sub-páginas para cursos específicos.
-  2. PLATAFORMAS E LINKS OBRIGATÓRIOS (USE EXATAMENTE ASSIM):
-     - Fundação Bradesco: https://www.ev.org.br/cursos
-     - SEBRAE: https://www.sebrae.com.br/sites/PortalSebrae/cursosonline
-     - FGV Online: https://www5.fgv.br/fgvonline/Cursos/Gratuitos/
-     - SENAI: https://www.portaldaindustria.com.br/senai/canais/educacao-profissional/cursos-gratuitos/
-     - Google Ateliê Digital: https://learndigital.withgoogle.com/ateliedigital/courses
-     - Microsoft Learn: https://learn.microsoft.com/pt-br/training/
-  
-  Retorne um JSON válido com o campo "courses" sendo um array de objetos: 
-  { courses: [{ name, provider, difficulty, impact, howToList, link }] }
-  `;
+  const prompt = `RECOMENDE 5 CURSOS GRATUITOS para: ${area}. Use apenas links de plataformas como Bradesco, SEBRAE, FGV, SENAI, Google Ateliê Digital, Microsoft Learn.`;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
@@ -319,24 +295,13 @@ export const searchJobs = async (role: string, location: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Encontre vagas de emprego reais para o cargo de "${role}" na região de "${location}". 
-    Liste as vagas com título, empresa, salário (se disponível), descrição curta, fonte e link para candidatura.`,
+    contents: `Encontre vagas de emprego reais para o cargo de "${role}" na região de "${location}".`,
     config: { 
         tools: [{ googleSearch: {} }] 
     }
   });
-
-  // Extract text and grounding chunks as per guidelines
-  const text = response.text || "";
-  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-
-  // Since response.text might not be JSON when using googleSearch tool, 
-  // we attempt a second call to structure the information found if text is present,
-  // or we parse the text manually. For reliability with the tool, we return the raw text and grounding.
-  
-  // Here we'll return a special format that the component can handle
   return { 
-    rawText: text, 
-    chunks: groundingChunks 
+    rawText: response.text || "", 
+    chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] 
   };
 };
