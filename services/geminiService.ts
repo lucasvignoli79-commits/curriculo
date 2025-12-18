@@ -10,29 +10,23 @@ SUA MISSÃO:
 2. Gerar um currículo PROFISSIONAL, DETALHADO, porém CURTO e DIRETO.
 3. O texto deve ser extremamente LIMPO e ORGANIZADO.
 
-REGRAS CRÍTICAS DE FORMATAÇÃO (NÃO NEGOCIÁVEIS):
-- NÃO utilize asteriscos (*), hífens (-), símbolos ou caracteres especiais no início ou no fim das frases.
-- NÃO utilize marcadores de lista (bullet points).
-- Separe as informações apenas por quebras de linha e títulos claros (ex: # Título).
-- NÃO use negrito ou itálico através de símbolos (como **texto**).
-- O texto deve estar pronto para uso, sem necessidade de limpeza manual de símbolos.
+REGRAS CRÍTICAS DE FORMATAÇÃO:
+- NÃO utilize asteriscos (*), hífens (-), ou símbolos no início das frases desnecessariamente.
+- Separe as informações por títulos claros (ex: # Título).
+- NÃO use negrito ou itálico através de símbolos markdown no JSON estruturado.
+- O campo 'markdown' deve conter a versão completa formatada para impressão.
 
 REGRAS DE CONTEÚDO:
-- COMPREENSÃO: O resumo profissional deve ser denso e impactante, em um parágrafo único de 3 a 4 linhas.
-- EXPERIÊNCIA: Descreva as responsabilidades de forma narrativa e profissional. Evite listas. Use verbos de ação.
-- JOVEM APRENDIZ: Foque em potencial, educação e objetivos claros, mantendo a sobriedade e limpeza do texto.
-- IDIOMA: Use apenas Português do Brasil (PT-BR).
-
-REGRAS DE RETORNO:
-- Retorne os dados ESTRUTURADOS (JSON).
-- No campo "markdown", use apenas títulos com '#' e quebras de linha simples.
+- RESUMO: Parágrafo único, impactante, 3-4 linhas.
+- EXPERIÊNCIA: Narrativa profissional com verbos de ação.
+- IDIOMA: Português do Brasil (PT-BR).
 `;
 
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    markdown: { type: Type.STRING },
-    suggestions: { type: Type.STRING },
+    markdown: { type: Type.STRING, description: "Versão formatada em markdown para visualização direta." },
+    suggestions: { type: Type.STRING, description: "Dicas de melhoria para o usuário." },
     structured: {
       type: Type.OBJECT,
       properties: {
@@ -68,8 +62,7 @@ const cleanJsonString = (jsonStr: string): string => {
 
 export const generateResumeFromScratch = async (data: ResumeFormData, isApprentice: boolean = false): Promise<GeneratedResume> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const { photo, ...textData } = data;
-  const prompt = `GERAR CURRÍCULO LIMPO E DIRETO. MODO: ${isApprentice ? 'JOVEM APRENDIZ' : 'PROFISSIONAL'}. DADOS DO USUÁRIO: ${JSON.stringify(textData)}. Lembre-se: SEM SÍMBOLOS, SEM ASTERISCOS, SEM LISTAS COM HIFENS.`;
+  const prompt = `Gere um currículo ${isApprentice ? 'Jovem Aprendiz' : 'Profissional'} com base nestes dados: ${JSON.stringify(data)}`;
   
   try {
     const response = await ai.models.generateContent({
@@ -81,17 +74,18 @@ export const generateResumeFromScratch = async (data: ResumeFormData, isApprenti
         responseSchema: RESPONSE_SCHEMA
       }
     });
-    return JSON.parse(cleanJsonString(response.text || '{}')) as GeneratedResume;
+    
+    const text = response.text;
+    return JSON.parse(cleanJsonString(text)) as GeneratedResume;
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw error;
+    console.error("Gemini Generation Error:", error);
+    throw new Error("Falha ao gerar currículo. Tente novamente.");
   }
 };
 
 export const optimizeResume = async (textInput: string, imageBase64?: string, mimeType?: string): Promise<GeneratedResume> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `OTIMIZAR CURRÍCULO. Remova todos os símbolos de lista, asteriscos e caracteres especiais. CONTEÚDO: ${textInput}`;
-  const parts: any[] = [{ text: prompt }];
+  const parts: any[] = [{ text: `Otimize o seguinte currículo para ser aprovado em sistemas ATS: ${textInput}` }];
   
   if (imageBase64 && mimeType) {
     parts.push({ inlineData: { data: imageBase64, mimeType } });
@@ -107,10 +101,10 @@ export const optimizeResume = async (textInput: string, imageBase64?: string, mi
         responseSchema: RESPONSE_SCHEMA 
       }
     });
-    return JSON.parse(cleanJsonString(response.text || '{}')) as GeneratedResume;
+    return JSON.parse(cleanJsonString(response.text)) as GeneratedResume;
   } catch (error) {
     console.error("Gemini Optimization Error:", error);
-    throw error;
+    throw new Error("Falha ao otimizar currículo.");
   }
 };
 
@@ -119,12 +113,12 @@ export const generateProfessionalHeadshot = async (imageBase64: string, style: P
   const stylePrompts = {
     classic: "executive portrait, studio lighting, clean grey background, professional suit, sharp focus",
     modern: "minimalist bright background, smart casual clothing, professional lighting, soft shadows",
-    corporate: "blurred high-end office background, formal business attire, executive profile, cinematic lighting",
-    bokeh: "blurred natural outdoor background, soft daylight, professional headshot, friendly and trustworthy expression",
+    corporate: "blurred high-end office background, formal business attire, executive profile",
+    bokeh: "blurred natural outdoor background, soft daylight, professional headshot",
     bw: "elegant black and white, dramatic lighting, high contrast, professional corporate style"
   };
 
-  const prompt = `Act as a professional photo editor. Transform this person's photo into a high-quality professional corporate headshot. Style: ${stylePrompts[style]}. Keep identity identical. Output image only.`;
+  const prompt = `Transforme esta pessoa em um retrato profissional de alta qualidade. Estilo: ${stylePrompts[style]}. Mantenha a identidade idêntica. Saída: apenas imagem.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -135,19 +129,16 @@ export const generateProfessionalHeadshot = async (imageBase64: string, style: P
           { text: prompt }
         ] 
       },
-      config: {
-          imageConfig: { aspectRatio: "1:1" }
-      }
+      config: { imageConfig: { aspectRatio: "1:1" } }
     });
     
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
+    const imagePart = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+    if (imagePart?.inlineData?.data) {
+      return imagePart.inlineData.data;
     }
-    throw new Error("Nenhuma imagem gerada.");
+    throw new Error("Nenhuma imagem gerada pela IA.");
   } catch (error) {
-    console.error("Gemini Photo Gen Error:", error);
+    console.error("Gemini Image Error:", error);
     throw error;
   }
 };
@@ -156,153 +147,160 @@ export const extractTextFromImage = async (base64: string, mimeType: string): Pr
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: "Extraia todo o texto deste currículo de forma organizada." }] }
+    contents: { 
+      parts: [
+        { inlineData: { data: base64, mimeType } }, 
+        { text: "Extraia todo o texto deste currículo e organize por seções." }
+      ] 
+    }
   });
-  return response.text || "";
+  return response.text;
 };
 
 export const extractTextFromPdf = async (base64: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: { parts: [{ inlineData: { data: base64, mimeType: 'application/pdf' } }, { text: "Extraia todo o texto deste currículo PDF de forma organizada." }] }
-  });
-  return response.text || "";
-};
-
-export const analyzeJobMatch = async (resumeText: string, jobDescription: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Analise a compatibilidade entre o currículo e a vaga abaixo.\nCURRÍCULO: ${resumeText}\nVAGA: ${jobDescription}`,
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                score: { type: Type.NUMBER },
-                missingKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-                suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["score", "missingKeywords", "suggestions"]
-        }
+    contents: { 
+      parts: [
+        { inlineData: { data: base64, mimeType: 'application/pdf' } }, 
+        { text: "Extraia todo o texto deste currículo PDF de forma organizada." }
+      ] 
     }
   });
-  return JSON.parse(cleanJsonString(response.text || '{}'));
-};
-
-export const checkATS = async (resumeText: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Realize um check de legibilidade ATS para o seguinte texto de currículo: ${resumeText}`,
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                score: { type: Type.NUMBER },
-                errors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                warnings: { type: Type.ARRAY, items: { type: Type.STRING } },
-                keywordsFound: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["score", "errors", "warnings", "keywordsFound"]
-        }
-    }
-  });
-  return JSON.parse(cleanJsonString(response.text || '{}'));
-};
-
-export const generateLinkedInProfile = async (resumeText: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Com base no currículo abaixo, gere um perfil otimizado para o LinkedIn.\nCURRÍCULO: ${resumeText}`,
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                headline: { type: Type.STRING },
-                aboutShort: { type: Type.STRING },
-                aboutMedium: { type: Type.STRING },
-                aboutLong: { type: Type.STRING },
-                skills: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["headline", "aboutShort", "aboutMedium", "aboutLong", "skills"]
-        }
-    }
-  });
-  return JSON.parse(cleanJsonString(response.text || '{}'));
-};
-
-export const simulateInterview = async (role: string, level: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Simule uma entrevista de emprego para o cargo de ${role} (Nível: ${level})`,
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                feedback: { type: Type.STRING },
-                commonQuestions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, idealAnswer: { type: Type.STRING } } } },
-                techQuestions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, idealAnswer: { type: Type.STRING } } } },
-                hardQuestions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, idealAnswer: { type: Type.STRING } } } }
-            },
-            required: ["feedback", "commonQuestions", "techQuestions", "hardQuestions"]
-        }
-    }
-  });
-  return JSON.parse(cleanJsonString(response.text || '{}'));
-};
-
-export const getCourseRecommendations = async (area: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `RECOMENDE 5 CURSOS GRATUITOS para: ${area}. Use apenas links de plataformas como Bradesco, SEBRAE, FGV, SENAI, Google Ateliê Digital, Microsoft Learn.`;
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                courses: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: { type: Type.STRING },
-                            provider: { type: Type.STRING },
-                            difficulty: { type: Type.STRING },
-                            impact: { type: Type.STRING },
-                            howToList: { type: Type.STRING },
-                            link: { type: Type.STRING }
-                        },
-                        required: ["name", "provider", "link"]
-                    }
-                }
-            }
-        }
-    }
-  });
-  return JSON.parse(cleanJsonString(response.text || '{ "courses": [] }'));
+  return response.text;
 };
 
 export const searchJobs = async (role: string, location: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Encontre vagas de emprego reais para o cargo de "${role}" na região de "${location}".`,
-    config: { 
-        tools: [{ googleSearch: {} }] 
-    }
+    contents: `Encontre 5 vagas de emprego reais e atuais para o cargo de "${role}" em "${location}". Liste os detalhes e forneça links reais.`,
+    config: { tools: [{ googleSearch: {} }] }
   });
-  return { 
-    rawText: response.text || "", 
-    chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] 
+  
+  return {
+    rawText: response.text,
+    chunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
   };
 };
 
+export const analyzeJobMatch = async (resumeText: string, jobDescription: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Analise o match entre este currículo e esta vaga.\nCURRÍCULO: ${resumeText}\nVAGA: ${jobDescription}`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          score: { type: Type.NUMBER },
+          missingKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+          suggestions: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["score", "missingKeywords", "suggestions"]
+      }
+    }
+  });
+  return JSON.parse(cleanJsonString(response.text));
+};
+
+export const checkATS = async (resumeText: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Faça uma auditoria de legibilidade ATS (Applicant Tracking Systems) para este currículo: ${resumeText}`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          score: { type: Type.NUMBER },
+          errors: { type: Type.ARRAY, items: { type: Type.STRING } },
+          warnings: { type: Type.ARRAY, items: { type: Type.STRING } },
+          keywordsFound: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["score", "errors", "warnings", "keywordsFound"]
+      }
+    }
+  });
+  return JSON.parse(cleanJsonString(response.text));
+};
+
+export const generateLinkedInProfile = async (resumeText: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Gere um perfil otimizado para o LinkedIn com base neste currículo: ${resumeText}`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          headline: { type: Type.STRING },
+          aboutShort: { type: Type.STRING },
+          aboutMedium: { type: Type.STRING },
+          aboutLong: { type: Type.STRING },
+          skills: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["headline", "aboutShort", "aboutMedium", "aboutLong", "skills"]
+      }
+    }
+  });
+  return JSON.parse(cleanJsonString(response.text));
+};
+
+export const simulateInterview = async (role: string, level: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Simule perguntas de entrevista para o cargo de ${role} nível ${level}. Forneça a resposta ideal para cada uma.`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          feedback: { type: Type.STRING },
+          commonQuestions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, idealAnswer: { type: Type.STRING } } } },
+          techQuestions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, idealAnswer: { type: Type.STRING } } } },
+          hardQuestions: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, idealAnswer: { type: Type.STRING } } } }
+        },
+        required: ["feedback", "commonQuestions", "techQuestions", "hardQuestions"]
+      }
+    }
+  });
+  return JSON.parse(cleanJsonString(response.text));
+};
+
+export const getCourseRecommendations = async (area: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Recomende 5 cursos gratuitos e verificados para a área de ${area}. Use plataformas brasileiras estáveis.`,
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          courses: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                provider: { type: Type.STRING },
+                difficulty: { type: Type.STRING },
+                impact: { type: Type.STRING },
+                howToList: { type: Type.STRING },
+                link: { type: Type.STRING }
+              },
+              required: ["name", "provider", "link"]
+            }
+          }
+        }
+      }
+    }
+  });
+  return JSON.parse(cleanJsonString(response.text));
+};
