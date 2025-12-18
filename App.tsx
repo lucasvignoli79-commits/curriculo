@@ -24,6 +24,8 @@ import AdminDashboard from './components/AdminDashboard.tsx';
 import PaymentModal from './components/PaymentModal.tsx';
 
 import { FileText, Sparkles, Briefcase, BookOpen, Layout, Camera, Search, ShieldCheck, Linkedin, MessageSquare, Crown, Layers, Zap, X, GraduationCap, LogOut, Lock, Globe, History, Check, AlertTriangle, Key } from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Auth from './components/Auth';
 
 // Use the pre-defined AIStudio type to avoid conflicting declarations
 declare global {
@@ -33,6 +35,25 @@ declare global {
 }
 
 const App: React.FC = () => {
+  const { session, loading: authLoading, isPasswordRecovery } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Show password reset form when user clicks reset link from email
+  if (isPasswordRecovery) {
+    return <Auth initialView="reset-password" />;
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
   const [result, setResult] = useState<GeneratedResume | null>(null);
@@ -82,7 +103,7 @@ const App: React.FC = () => {
   };
 
   const triggerSaveToast = (msg?: string) => {
-      setToastMessage(msg || 'Currículo salvo em "Meus Currículos"');
+      setToastMessage(msg || 'CurrÃ­culo salvo em "Meus CurrÃ­culos"');
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
   };
@@ -115,9 +136,9 @@ const App: React.FC = () => {
     } catch (err: any) {
       if (err.message?.includes("entity was not found")) {
         setIsApiKeySelected(false);
-        setError("Chave de API expirada ou inválida. Configure novamente.");
+        setError("Chave de API expirada ou invÃ¡lida. Configure novamente.");
       } else {
-        setError("Erro ao gerar currículo. Verifique sua conexão ou chave de API.");
+        setError("Erro ao gerar currÃ­culo. Verifique sua conexÃ£o ou chave de API.");
       }
     } finally {
       setLoading(false);
@@ -138,7 +159,7 @@ const App: React.FC = () => {
       setResult(generated);
       setMode(AppMode.RESULT);
     } catch (err) {
-      setError("Erro ao otimizar currículo. Tente novamente.");
+      setError("Erro ao otimizar currÃ­culo. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -152,7 +173,7 @@ const App: React.FC = () => {
       const resultBase64 = await generateProfessionalHeadshot(imageBase64, style);
       return resultBase64;
     } catch (err: any) {
-      setError("Erro ao processar foto. Certifique-se de usar uma chave de API válida.");
+      setError("Erro ao processar foto. Certifique-se de usar uma chave de API vÃ¡lida.");
       throw err;
     } finally {
       setLoading(false);
@@ -171,8 +192,8 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
             <AlertTriangle className="text-amber-600 w-6 h-6" />
             <div>
-              <p className="font-bold text-amber-800">Chave de API Necessária</p>
-              <p className="text-sm text-amber-700">Para usar as funções de IA na Netlify, você precisa configurar sua chave.</p>
+              <p className="font-bold text-amber-800">Chave de API NecessÃ¡ria</p>
+              <p className="text-sm text-amber-700">Para usar as funÃ§Ãµes de IA na Netlify, vocÃª precisa configurar sua chave.</p>
             </div>
           </div>
           <button 
@@ -201,7 +222,7 @@ const App: React.FC = () => {
                 onClick={() => setMode(AppMode.HISTORY)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-sm font-medium transition-colors"
               >
-                  <History className="w-4 h-4" /> Meus Currículos
+                  <History className="w-4 h-4" /> Meus CurrÃ­culos
               </button>
               <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg text-sm transition-colors">
                   <LogOut className="w-4 h-4" /> Sair
@@ -214,7 +235,7 @@ const App: React.FC = () => {
           Curriculum <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Master IA</span>
         </h1>
         <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto font-light">
-          Crie, otimize ou transforme seu currículo com o poder da IA Pro.
+          Crie, otimize ou transforme seu currÃ­culo com o poder da IA Pro.
         </p>
       </div>
 
@@ -232,7 +253,7 @@ const App: React.FC = () => {
             <Camera className="w-7 h-7 text-violet-600 group-hover:text-white" />
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Foto Profissional</h2>
-          <p className="text-slate-500 text-sm flex-1">IA Gemini 3 Pro para retratos de estúdio.</p>
+          <p className="text-slate-500 text-sm flex-1">IA Gemini 3 Pro para retratos de estÃºdio.</p>
         </button>
 
         <button onClick={() => { setSelectedTemplate('modern'); setMode(AppMode.CREATE); }} className="group bg-white rounded-3xl p-6 shadow-xl border border-slate-100 text-left hover:-translate-y-2 transition-all flex flex-col h-full">
@@ -240,7 +261,7 @@ const App: React.FC = () => {
             <Briefcase className="w-7 h-7 text-blue-600 group-hover:text-white" />
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Criar Profissional</h2>
-          <p className="text-slate-500 text-sm flex-1">Geração rápida focada em resultados.</p>
+          <p className="text-slate-500 text-sm flex-1">GeraÃ§Ã£o rÃ¡pida focada em resultados.</p>
         </button>
 
         <button onClick={() => { setSelectedTemplate('modern'); setMode(AppMode.REFINE); }} className="group bg-white rounded-3xl p-6 shadow-xl border border-slate-100 text-left hover:-translate-y-2 transition-all flex flex-col h-full">
@@ -248,7 +269,7 @@ const App: React.FC = () => {
             <Sparkles className="w-7 h-7 text-emerald-600 group-hover:text-white" />
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Otimizar Atual</h2>
-          <p className="text-slate-500 text-sm flex-1">Correção e design para currículos prontos.</p>
+          <p className="text-slate-500 text-sm flex-1">CorreÃ§Ã£o e design para currÃ­culos prontos.</p>
         </button>
 
         <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-6">
@@ -278,7 +299,7 @@ const App: React.FC = () => {
                 <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><ShieldCheck className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">ATS Checker</h3>
             </div>
-            <p className="text-xs text-slate-500">Filtro de robôs de RH.</p>
+            <p className="text-xs text-slate-500">Filtro de robÃ´s de RH.</p>
         </button>
 
         <button onClick={() => setMode(AppMode.LINKEDIN_GEN)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg transition-all text-left">
@@ -286,7 +307,7 @@ const App: React.FC = () => {
                 <div className="p-2 bg-sky-50 text-sky-600 rounded-lg"><Linkedin className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">LinkedIn Pro</h3>
             </div>
-            <p className="text-xs text-slate-500">Perfil campeão gerado.</p>
+            <p className="text-xs text-slate-500">Perfil campeÃ£o gerado.</p>
         </button>
       </div>
     </div>
@@ -363,4 +384,11 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+// Wrap App with AuthProvider
+const AppWithAuth = () => (
+  <AuthProvider>
+    <App />
+  </AuthProvider>
+);
+
+export default AppWithAuth;
