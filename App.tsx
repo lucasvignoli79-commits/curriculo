@@ -21,39 +21,10 @@ import JobSearch from './components/JobSearch.tsx';
 import ResumeHistory from './components/ResumeHistory.tsx';
 import AuthScreen from './components/AuthScreen.tsx';
 import AdminDashboard from './components/AdminDashboard.tsx';
-import PaymentModal from './components/PaymentModal.tsx';
 
-import { FileText, Sparkles, Briefcase, BookOpen, Layout, Camera, Search, ShieldCheck, Linkedin, MessageSquare, Crown, Layers, Zap, X, GraduationCap, LogOut, Lock, Globe, History, Check, AlertTriangle, Key } from 'lucide-react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Auth from './components/Auth';
-
-// Use the pre-defined AIStudio type to avoid conflicting declarations
-declare global {
-  interface Window {
-    aistudio: AIStudio;
-  }
-}
+import { FileText, Sparkles, Briefcase, BookOpen, Layout, Camera, Search, ShieldCheck, Linkedin, MessageSquare, Crown, Layers, Zap, X, GraduationCap, LogOut, Lock, Globe, History, Check } from 'lucide-react';
 
 const App: React.FC = () => {
-  const { session, loading: authLoading, isPasswordRecovery } = useAuth();
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // Show password reset form when user clicks reset link from email
-  if (isPasswordRecovery) {
-    return <Auth initialView="reset-password" />;
-  }
-
-  if (!session) {
-    return <Auth />;
-  }
-
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
   const [result, setResult] = useState<GeneratedResume | null>(null);
@@ -61,38 +32,21 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('modern');
-  const [showPayment, setShowPayment] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [isApiKeySelected, setIsApiKeySelected] = useState<boolean>(true);
+  const [toastMessage, setToastMessage] = useState('Currículo salvo em "Meus Currículos"');
 
+  // Initialize Auth
   useEffect(() => {
     authService.init();
     const currentUser = authService.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
-      checkApiKeyStatus();
     }
   }, []);
-
-  const checkApiKeyStatus = async () => {
-    if (window.aistudio) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      setIsApiKeySelected(hasKey);
-    }
-  };
-
-  const handleOpenApiKeyDialog = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setIsApiKeySelected(true); // Assume success after interaction
-    }
-  };
 
   const handleLoginSuccess = (u: User) => {
     setUser(u);
     setMode(AppMode.HOME);
-    checkApiKeyStatus();
   };
 
   const handleLogout = () => {
@@ -103,23 +57,14 @@ const App: React.FC = () => {
   };
 
   const triggerSaveToast = (msg?: string) => {
-      setToastMessage(msg || 'CurrÃÂ­culo salvo em "Meus CurrÃÂ­culos"');
+      setToastMessage(msg || 'Currículo salvo em "Meus Currículos"');
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 4000);
-  };
-
-  const ensureApiKey = async (): Promise<boolean> => {
-    if (!isApiKeySelected && window.aistudio) {
-      await handleOpenApiKeyDialog();
-      return true;
-    }
-    return true;
   };
 
   // --- Handlers ---
 
   const handleCreateSubmit = async (data: ResumeFormData) => {
-    await ensureApiKey();
     setLoading(true);
     setError(null);
     setUserPhoto(data.photo || ''); 
@@ -127,31 +72,7 @@ const App: React.FC = () => {
     
     try {
       const generated = await generateResumeFromScratch(data, isApprentice);
-      if (user) {
-          resumeService.saveResume(user.id, generated, user.email);
-          triggerSaveToast();
-      }
-      setResult(generated);
-      setMode(AppMode.RESULT);
-    } catch (err: any) {
-      if (err.message?.includes("entity was not found")) {
-        setIsApiKeySelected(false);
-        setError("Chave de API expirada ou invÃÂ¡lida. Configure novamente.");
-      } else {
-        setError("Erro ao gerar currÃÂ­culo. Verifique sua conexÃÂ£o ou chave de API.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefineSubmit = async (text: string, file?: FileUpload, photo?: string) => {
-    await ensureApiKey();
-    setLoading(true);
-    setError(null);
-    setUserPhoto(photo || '');
-    try {
-      const generated = await optimizeResume(text, file?.data, file?.type);
+      // Save automatically using both ID and Email for persistence insurance
       if (user) {
           resumeService.saveResume(user.id, generated, user.email);
           triggerSaveToast();
@@ -159,52 +80,63 @@ const App: React.FC = () => {
       setResult(generated);
       setMode(AppMode.RESULT);
     } catch (err) {
-      setError("Erro ao otimizar currÃÂ­culo. Tente novamente.");
+      setError("Erro ao gerar currículo. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefineSubmit = async (text: string, file?: FileUpload, photo?: string) => {
+    setLoading(true);
+    setError(null);
+    setUserPhoto(photo || '');
+    try {
+      const generated = await optimizeResume(text, file?.data, file?.type);
+      // Save automatically using both ID and Email for persistence insurance
+      if (user) {
+          resumeService.saveResume(user.id, generated, user.email);
+          triggerSaveToast();
+      }
+      setResult(generated);
+      setMode(AppMode.RESULT);
+    } catch (err) {
+      setError("Erro ao otimizar currículo. Verifique se a imagem é legível e tente novamente.");
     } finally {
       setLoading(false);
     }
   };
 
   const handlePhotoGeneration = async (imageBase64: string, style: PhotoStyle): Promise<string> => {
-    await ensureApiKey();
     setLoading(true);
     setError(null);
     try {
       const resultBase64 = await generateProfessionalHeadshot(imageBase64, style);
       return resultBase64;
-    } catch (err: any) {
-      setError("Erro ao processar foto. Certifique-se de usar uma chave de API vÃÂ¡lida.");
+    } catch (err) {
+      setError("Erro ao processar foto. Tente novamente.");
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSelectHistoryResume = (resume: GeneratedResume) => {
+      setResult(resume);
+      setMode(AppMode.RESULT);
+  };
+
+  // --- Auth Guard ---
   if (!user) {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // --- Admin View ---
+  if (mode === AppMode.ADMIN && user.role === 'admin') {
+      return <AdminDashboard currentUser={user} onBack={() => setMode(AppMode.HOME)} onLogout={handleLogout} />;
+  }
+
   const renderHome = () => (
     <div className="max-w-6xl mx-auto mt-12 px-4">
-      {/* API Key Warning */}
-      {!isApiKeySelected && (
-        <div className="mb-6 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="text-amber-600 w-6 h-6" />
-            <div>
-              <p className="font-bold text-amber-800">Chave de API NecessÃÂ¡ria</p>
-              <p className="text-sm text-amber-700">Para usar as funÃÂ§ÃÂµes de IA na Netlify, vocÃÂª precisa configurar sua chave.</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleOpenApiKeyDialog}
-            className="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-amber-700 transition-colors flex items-center gap-2"
-          >
-            <Key className="w-4 h-4" /> Configurar Agora
-          </button>
-        </div>
-      )}
-
       {/* User Header */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-10 bg-white p-4 rounded-xl shadow-sm border border-slate-100 gap-4">
           <div className="flex items-center gap-3">
@@ -218,12 +150,19 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+              {/* My Resumes Tab Button */}
               <button 
                 onClick={() => setMode(AppMode.HISTORY)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-sm font-medium transition-colors"
               >
-                  <History className="w-4 h-4" /> Meus CurrÃÂ­culos
+                  <History className="w-4 h-4" /> Meus Currículos
               </button>
+
+              {user.role === 'admin' && (
+                  <button onClick={() => setMode(AppMode.ADMIN)} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-black transition-colors">
+                      <Lock className="w-4 h-4" /> Painel Admin
+                  </button>
+              )}
               <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg text-sm transition-colors">
                   <LogOut className="w-4 h-4" /> Sair
               </button>
@@ -235,80 +174,189 @@ const App: React.FC = () => {
           Curriculum <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Master IA</span>
         </h1>
         <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto font-light">
-          Crie, otimize ou transforme seu currÃÂ­culo com o poder da IA Pro.
+          Crie, otimize ou transforme seu currículo em um documento de alto impacto em segundos.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <button onClick={() => setMode(AppMode.TEMPLATES)} className="group bg-white rounded-3xl p-6 shadow-xl border border-slate-100 text-left hover:-translate-y-2 transition-all flex flex-col h-full">
-          <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
-            <Layout className="w-7 h-7 text-purple-600 group-hover:text-white" />
+        {/* Card 0: Modelos */}
+        <button 
+          onClick={() => setMode(AppMode.TEMPLATES)}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-purple-500/10 transition-all border border-slate-100 text-left hover:-translate-y-2 duration-300 flex flex-col h-full"
+        >
+          <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors duration-300">
+            <Layout className="w-7 h-7 text-purple-600 group-hover:text-white transition-colors" />
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Ver Modelos</h2>
-          <p className="text-slate-500 text-sm flex-1">Explore designs modernos e executivos.</p>
+          <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
+            Explore designs modernos, executivos e criativos.
+          </p>
         </button>
 
-        <button onClick={() => setMode(AppMode.PHOTO_STUDIO)} className="group bg-white rounded-3xl p-6 shadow-xl border border-slate-100 text-left hover:-translate-y-2 transition-all flex flex-col h-full">
-          <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-violet-600 transition-colors">
-            <Camera className="w-7 h-7 text-violet-600 group-hover:text-white" />
+        {/* Card 1: Foto Profissional */}
+        <button 
+          onClick={() => setMode(AppMode.PHOTO_STUDIO)}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-violet-500/10 transition-all border border-slate-100 text-left hover:-translate-y-2 duration-300 flex flex-col h-full"
+        >
+          <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-violet-600 transition-colors duration-300">
+            <Camera className="w-7 h-7 text-violet-600 group-hover:text-white transition-colors" />
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Foto Profissional</h2>
-          <p className="text-slate-500 text-sm flex-1">IA Gemini 3 Pro para retratos de estÃÂºdio.</p>
+          <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
+            Transforme selfie em foto de estúdio com IA.
+          </p>
         </button>
 
-        <button onClick={() => { setSelectedTemplate('modern'); setMode(AppMode.CREATE); }} className="group bg-white rounded-3xl p-6 shadow-xl border border-slate-100 text-left hover:-translate-y-2 transition-all flex flex-col h-full">
-          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
-            <Briefcase className="w-7 h-7 text-blue-600 group-hover:text-white" />
+        {/* Card 2: Profissional */}
+        <button 
+          onClick={() => {
+              setSelectedTemplate('modern'); 
+              setMode(AppMode.CREATE);
+          }}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all border border-slate-100 text-left hover:-translate-y-2 duration-300 flex flex-col h-full"
+        >
+          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors duration-300">
+            <Briefcase className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Criar Profissional</h2>
-          <p className="text-slate-500 text-sm flex-1">GeraÃÂ§ÃÂ£o rÃÂ¡pida focada em resultados.</p>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Currículo Profissional</h2>
+          <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
+            Criação rápida focada em resultados.
+          </p>
         </button>
 
-        <button onClick={() => { setSelectedTemplate('modern'); setMode(AppMode.REFINE); }} className="group bg-white rounded-3xl p-6 shadow-xl border border-slate-100 text-left hover:-translate-y-2 transition-all flex flex-col h-full">
-          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-600 transition-colors">
-            <Sparkles className="w-7 h-7 text-emerald-600 group-hover:text-white" />
+         {/* Card 3: Jovem Aprendiz */}
+         <button 
+          onClick={() => {
+            setSelectedTemplate('modern'); 
+            setMode(AppMode.CREATE_APPRENTICE);
+          }}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-orange-500/10 transition-all border border-slate-100 text-left hover:-translate-y-2 duration-300 flex flex-col h-full"
+        >
+          <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors duration-300">
+            <BookOpen className="w-7 h-7 text-orange-500 group-hover:text-white transition-colors" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Otimizar Atual</h2>
-          <p className="text-slate-500 text-sm flex-1">CorreÃÂ§ÃÂ£o e design para currÃÂ­culos prontos.</p>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Currículo Jovem Aprendiz</h2>
+          <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">
+            Foco em potencial e educação para o 1º emprego.
+          </p>
         </button>
 
-        <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-6">
+        {/* Card 4: Refinar (Expanded) */}
+        <button 
+          onClick={() => {
+            setSelectedTemplate('modern'); 
+            setMode(AppMode.REFINE);
+          }}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all border border-slate-100 text-left hover:-translate-y-2 duration-300 flex flex-col h-full md:col-span-2 lg:col-span-2"
+        >
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-emerald-600 transition-colors duration-300">
+              <Sparkles className="w-7 h-7 text-emerald-600 group-hover:text-white transition-colors" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 mb-1">Otimizar CV Existente</h2>
+              <p className="text-slate-500 text-sm">
+                Envie seu arquivo atual. Nossa IA corrige erros e aplica design profissional.
+              </p>
+            </div>
+          </div>
+        </button>
+
+         {/* Card: Comparativo (Expanded) */}
+        <button 
+          onClick={() => setMode(AppMode.COMPARISON)}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-yellow-500/10 transition-all border border-slate-100 text-left hover:-translate-y-2 duration-300 flex flex-col h-full md:col-span-2 lg:col-span-2"
+        >
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-yellow-50 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-yellow-500 transition-colors duration-300">
+              <Crown className="w-7 h-7 text-yellow-500 group-hover:text-white transition-colors" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 mb-1">Por que somos melhores?</h2>
+              <p className="text-slate-500 text-sm">
+                Compare nossos recursos com Canva e editores tradicionais.
+              </p>
+            </div>
+          </div>
+        </button>
+
+        {/* === NEW FEATURES === */}
+        <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-6 mb-2">
             <h3 className="text-slate-400 font-bold uppercase tracking-wider text-sm flex items-center gap-2">
-                Ferramentas de IA Pro
+                <span className="w-8 h-px bg-slate-300"></span> Ferramentas Extras <span className="w-full h-px bg-slate-300"></span>
             </h3>
         </div>
 
-        <button onClick={() => setMode(AppMode.JOB_SEARCH)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg transition-all text-left">
+        {/* Busca de Vagas - NEW */}
+        <button onClick={() => setMode(AppMode.JOB_SEARCH)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Globe className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">Buscar Vagas</h3>
             </div>
-            <p className="text-xs text-slate-500">Conectado ao Google Search.</p>
+            <p className="text-xs text-slate-500">Encontre oportunidades na sua região.</p>
         </button>
 
-        <button onClick={() => setMode(AppMode.JOB_ANALYSIS)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg transition-all text-left">
+        {/* Analisar Vaga */}
+        <button onClick={() => setMode(AppMode.JOB_ANALYSIS)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Search className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">Analisar Vaga</h3>
             </div>
-            <p className="text-xs text-slate-500">Match inteligente com a IA.</p>
+            <p className="text-xs text-slate-500">Compare seu CV com uma vaga e veja o Match.</p>
         </button>
 
-        <button onClick={() => setMode(AppMode.ATS_CHECKER)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg transition-all text-left">
+         {/* ATS Checker */}
+         <button onClick={() => setMode(AppMode.ATS_CHECKER)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><ShieldCheck className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">ATS Checker</h3>
             </div>
-            <p className="text-xs text-slate-500">Filtro de robÃÂ´s de RH.</p>
+            <p className="text-xs text-slate-500">Seu CV passa pelos robôs de RH?</p>
         </button>
 
-        <button onClick={() => setMode(AppMode.LINKEDIN_GEN)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg transition-all text-left">
+        {/* LinkedIn Pro */}
+        <button onClick={() => setMode(AppMode.LINKEDIN_GEN)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-sky-50 text-sky-600 rounded-lg"><Linkedin className="w-5 h-5"/></div>
                 <h3 className="font-bold text-slate-800">LinkedIn Pro</h3>
             </div>
-            <p className="text-xs text-slate-500">Perfil campeÃÂ£o gerado.</p>
+            <p className="text-xs text-slate-500">Gere Bio e Título otimizados.</p>
         </button>
+
+         {/* Simulador */}
+         <button onClick={() => setMode(AppMode.INTERVIEW_SIM)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
+            <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><MessageSquare className="w-5 h-5"/></div>
+                <h3 className="font-bold text-slate-800">Simulador Entrevista</h3>
+            </div>
+            <p className="text-xs text-slate-500">Treine respostas com IA.</p>
+        </button>
+
+        {/* Cursos Recomendados */}
+         <button onClick={() => setMode(AppMode.COURSES)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left">
+            <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-teal-50 text-teal-600 rounded-lg"><GraduationCap className="w-5 h-5"/></div>
+                <h3 className="font-bold text-slate-800">Cursos Grátis</h3>
+            </div>
+            <p className="text-xs text-slate-500">Recomendações para turbinar o CV.</p>
+        </button>
+        
+        {/* Antes e Depois */}
+         <button onClick={() => setMode(AppMode.BEFORE_AFTER)} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left md:col-span-2 lg:col-span-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg"><Layers className="w-5 h-5"/></div>
+                <div>
+                    <h3 className="font-bold text-slate-800">Galeria Antes e Depois</h3>
+                    <p className="text-xs text-slate-500">Veja exemplos reais de transformação.</p>
+                </div>
+            </div>
+            <div className="text-cyan-600"><Zap className="w-4 h-4" /></div>
+        </button>
+
+      </div>
+      
+      <div className="mt-20 text-center text-slate-400 text-sm">
+        Desenvolvido com Google Gemini 2.5 Flash
       </div>
     </div>
   );
@@ -320,6 +368,15 @@ const App: React.FC = () => {
         {mode === AppMode.CREATE && (
             <ResumeForm 
                 mode={AppMode.CREATE} 
+                onSubmit={handleCreateSubmit} 
+                onCancel={() => setMode(AppMode.HOME)} 
+                isLoading={loading}
+            />
+        )}
+
+        {mode === AppMode.CREATE_APPRENTICE && (
+            <ResumeForm 
+                mode={AppMode.CREATE_APPRENTICE} 
                 onSubmit={handleCreateSubmit} 
                 onCancel={() => setMode(AppMode.HOME)} 
                 isLoading={loading}
@@ -344,11 +401,50 @@ const App: React.FC = () => {
             />
         )}
 
+        {mode === AppMode.TEMPLATES && (
+            <TemplateGallery 
+                onSelect={(id, m) => { setSelectedTemplate(id); setMode(m); }} 
+                onCancel={() => setMode(AppMode.HOME)}
+            />
+        )}
+
         {mode === AppMode.PHOTO_STUDIO && (
             <PhotoStudio 
                 onGenerate={handlePhotoGeneration} 
                 onCancel={() => setMode(AppMode.HOME)} 
                 isLoading={loading} 
+            />
+        )}
+
+        {mode === AppMode.BEFORE_AFTER && (
+            <BeforeAfterGallery onBack={() => setMode(AppMode.HOME)} />
+        )}
+
+        {mode === AppMode.JOB_ANALYSIS && (
+            <JobAnalyzer onBack={() => setMode(AppMode.HOME)} />
+        )}
+
+        {mode === AppMode.ATS_CHECKER && (
+            <ATSChecker onBack={() => setMode(AppMode.HOME)} />
+        )}
+
+        {mode === AppMode.LINKEDIN_GEN && (
+            <LinkedInGenerator onBack={() => setMode(AppMode.HOME)} />
+        )}
+
+        {mode === AppMode.INTERVIEW_SIM && (
+            <InterviewSimulator onBack={() => setMode(AppMode.HOME)} />
+        )}
+
+        {mode === AppMode.COMPARISON && (
+            <CompetitorComparison onBack={() => setMode(AppMode.HOME)} />
+        )}
+
+        {mode === AppMode.COURSES && user && (
+            <CourseRecommendations 
+                userId={user.id}
+                onBack={() => setMode(AppMode.HOME)} 
+                onAddedSuccess={() => triggerSaveToast("Curso adicionado ao currículo com sucesso!")}
             />
         )}
 
@@ -359,36 +455,27 @@ const App: React.FC = () => {
         {mode === AppMode.HISTORY && user && (
             <ResumeHistory 
                 userId={user.id} 
-                onSelectResume={(r) => { setResult(r); setMode(AppMode.RESULT); }} 
+                onSelectResume={handleSelectHistoryResume} 
                 onBack={() => setMode(AppMode.HOME)} 
             />
         )}
 
         {showSavedToast && (
-            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50">
-                <Check className="w-4 h-4 text-green-400" />
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-5">
+                <div className="bg-green-500 rounded-full p-1"><Check className="w-3 h-3 text-white" /></div>
                 <span className="font-medium text-sm">{toastMessage}</span>
             </div>
         )}
 
         {error && (
-            <div className="fixed bottom-6 right-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50">
-                <div className="flex items-center justify-between">
-                    <p className="font-bold">Aviso</p>
-                    <button onClick={() => setError(null)}><X className="w-4 h-4" /></button>
-                </div>
-                <p className="text-sm">{error}</p>
+            <div className="fixed bottom-6 right-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 animate-in fade-in slide-in-from-bottom-5">
+            <p className="font-bold">Erro</p>
+            <p>{error}</p>
+            <button onClick={() => setError(null)} className="absolute top-2 right-2 text-red-500 hover:text-red-800"><X className="w-4 h-4" /></button>
             </div>
         )}
     </div>
   );
 };
 
-// Wrap App with AuthProvider
-const AppWithAuth = () => (
-  <AuthProvider>
-    <App />
-  </AuthProvider>
-);
-
-export default AppWithAuth;
+export default App;
