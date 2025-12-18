@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Curriculum Master IA",
+  "description": "Gerador e Otimizador Profissional de Currículos utilizando IA Avançada.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
